@@ -69,6 +69,7 @@ if ($r.captura) {
 # 5. Historial
 Write-Host ''
 Write-Host 'Ultimos analisis:'
-Llamar 'Get' '/historial?limite=5' $null $token | ForEach-Object {
-  Write-Host ("  {0,-11} {1}" -f $_.veredicto, $_.url)
+$historial = Llamar 'Get' '/historial?limite=5' $null $token
+foreach ($analisisPrevio in $historial) {
+  Write-Host ("  {0,-11} {1}" -f $analisisPrevio.veredicto, $analisisPrevio.url)
 }
