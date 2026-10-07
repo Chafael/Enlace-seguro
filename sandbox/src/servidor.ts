@@ -28,7 +28,9 @@ export function crearServidor(opciones: OpcionesServidor = {}) {
   const esInterna = opciones.esInterna ?? esDireccionInterna;
   const alCerrar = opciones.alCerrar ?? (() => process.exit(0));
 
-  const app = Fastify();
+  const app = Fastify({
+    ajv: { customOptions: { removeAdditional: false } }, // rechaza campos extra en lugar de borrarlos
+  });
   let navegador: Browser | undefined;
   let ocupado = false;
 
