@@ -1,0 +1,51 @@
+# EnlaceSeguro - levanta todo con:  docker compose up --build
+#
+# Semana 1: solo base de datos y los 3 sandboxes.
+# Semana 2: se agrega el servicio "api" (esta comentado abajo).
+
+# Configuracion comun de los 3 sandboxes (ancla YAML para no repetirla)
+x-sandbox: &sandbox
+  build: ./sandbox
+  user: pwuser              # usuario sin privilegios
+  read_only: true           # el contenedor no puede modificar sus archivos
+  tmpfs:                    # unicas carpetas escribibles; se borran al reiniciar
+    - /tmp
+    - /home/pwuser
+  mem_limit: 1g
+  cpus: 1.0
+  shm_size: 1gb             # sin esto Chromium falla en paginas pesadas
+  cap_drop: [ALL]           # sin permisos especiales del sistema
+  security_opt:
+    - no-new-privileges:true
+  restart: always           # si el sandbox se cierra, Docker lo levanta limpio
+  networks: [red_sandbox]   # no esta en red_interna: no puede ver la base de datos
+
+services:
+  db:
+    image: postgres:16
+    env_file: .env
+    volumes:
+      - datos_db:/var/lib/postgresql/data
+    networks: [red_interna]
+
+  # api:                      # se activa en la semana 2
+  #   build: ./api
+  #   env_file: .env
+  #   ports: ["8000:8000"]
+  #   depends_on: [db, sandbox1, sandbox2, sandbox3]
+  #   networks: [red_interna, red_sandbox]
+
+  sandbox1:
+    <<: *sandbox
+    ports:
+      - "127.0.0.1:9001:9000"   # SOLO para probar desde tu PC; quitar en la semana 4
+  sandbox2: *sandbox
+  sandbox3: *sandbox
+
+networks:
+  red_interna:
+    internal: true          # sin salida a internet: solo api y db
+  red_sandbox: {}           # con salida a internet para abrir los enlaces
+
+volumes:
+  datos_db:

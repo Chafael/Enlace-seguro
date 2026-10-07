@@ -1,0 +1,18 @@
+# Secretos
+.env
+
+# Node / TypeScript
+node_modules/
+dist/
+
+# Resultados de pruebas
+*.png
+!docs/*.png
+
+# Flutter
+app/build/
+app/.dart_tool/
+
+# Editores
+.vscode/
+.idea/
