@@ -9,10 +9,12 @@ import fastifySwaggerUi from '@fastify/swagger-ui';
 import Fastify, { type FastifyError } from 'fastify';
 import type { Configuracion } from './config.js';
 import type { BaseDeDatos } from './db.js';
+import { rutasAnalisis } from './rutas/analisis.js';
 import { rutasAuth } from './rutas/auth.js';
 import { rutasUsuario } from './rutas/usuario.js';
 
-export async function construirApp(config: Configuracion, db: BaseDeDatos, registros = true) {
+/** avisar: se llama cuando entra un analisis nuevo, para despertar al procesador. */
+export async function construirApp(config: Configuracion, db: BaseDeDatos, avisar: () => void, registros = true) {
   const app = Fastify({
     logger: registros,
     bodyLimit: 10_000, // 10 KB: suficiente para un enlace, evita cuerpos gigantes
@@ -20,7 +22,8 @@ export async function construirApp(config: Configuracion, db: BaseDeDatos, regis
   });
 
   // ---------- Seguridad ----------
-  await app.register(fastifyRateLimit, { max: 100, timeWindow: '1 minute' });
+  // 300 por minuto: la app consulta cada 2 segundos mientras espera un resultado
+  await app.register(fastifyRateLimit, { max: 300, timeWindow: '1 minute' });
   await app.register(fastifyJwt, {
     secret: config.secretoJwt,
     verify: { algorithms: ['HS256'] }, // solo acepta tokens firmados como los nuestros
@@ -62,6 +65,7 @@ export async function construirApp(config: Configuracion, db: BaseDeDatos, regis
   });
   await app.register(rutasAuth, { prefix: '/auth', db });
   await app.register(rutasUsuario, { db });
+  await app.register(rutasAnalisis, { db, avisar });
 
   return app;
 }

@@ -19,6 +19,7 @@ export interface Hallazgos {
   archivoDescarga: string | null;
   peticionesBloqueadas: string[];
   tiempoExcedido: boolean;
+  navegadorFallo: boolean;
   errores: string[];
   capturaPngBase64: string | null;
   peligro: boolean;
@@ -59,6 +60,7 @@ export async function analizar(
     archivoDescarga: null,
     peticionesBloqueadas: [],
     tiempoExcedido: false,
+    navegadorFallo: false,
     errores: [],
     capturaPngBase64: null,
     peligro: false,
@@ -129,9 +131,11 @@ export async function analizar(
       hallazgos.errores.push(`No se pudo tomar la captura: ${primeraLinea(error)}`);
     }
   } finally {
-    await contexto.close(); // se borran cookies, almacenamiento y pestanas
+    // Se borran cookies, almacenamiento y pestanas. Si el navegador murio, cerrar falla: se ignora.
+    await contexto.close().catch(() => undefined);
   }
 
+  hallazgos.navegadorFallo = !navegador.isConnected();
   return hallazgos;
 }
 
@@ -141,6 +145,7 @@ export function decidirPeligro(hallazgos: Hallazgos): void {
   if (hallazgos.descargaIntentada) motivos.push('La pagina intento descargar un archivo');
   if (hallazgos.peticionesBloqueadas.length > 0) motivos.push('La pagina intento conectarse a direcciones internas');
   if (hallazgos.tiempoExcedido) motivos.push('La pagina excedio el tiempo limite');
+  if (hallazgos.navegadorFallo) motivos.push('La pagina hizo fallar el navegador del sandbox');
   hallazgos.peligro = motivos.length > 0;
   hallazgos.motivos = motivos;
 }

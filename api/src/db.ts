@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS analisis (
 
 CREATE INDEX IF NOT EXISTS analisis_usuario_idx ON analisis (usuario_id, creado_en DESC);
 CREATE INDEX IF NOT EXISTS analisis_pendientes_idx ON analisis (creado_en) WHERE estado = 'pendiente';
+
+-- Semana 3: captura del sandbox (aparte del JSON para que el historial sea ligero)
+ALTER TABLE analisis ADD COLUMN IF NOT EXISTS captura TEXT;
+CREATE INDEX IF NOT EXISTS analisis_cache_idx ON analisis (url, actualizado_en DESC) WHERE estado = 'terminado';
 `;
 
 /** Crea las tablas si no existen. Se puede ejecutar cada vez que arranca la API. */

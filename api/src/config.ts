@@ -13,6 +13,7 @@ export interface Configuracion {
     database: string;
   };
   secretoJwt: string;
+  sandboxes: string[];
 }
 
 function requerida(nombre: string): string {
@@ -37,5 +38,9 @@ export function leerConfiguracion(): Configuracion {
       database: requerida('POSTGRES_DB'),
     },
     secretoJwt,
+    sandboxes: (process.env.SANDBOXES ?? 'http://sandbox1:9000,http://sandbox2:9000,http://sandbox3:9000')
+      .split(',')
+      .map((direccion) => direccion.trim())
+      .filter(Boolean),
   };
 }
