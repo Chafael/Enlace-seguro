@@ -16,3 +16,6 @@ app/.dart_tool/
 # Editores
 .vscode/
 .idea/
+
+# Archivos de herramientas locales
+.atl/

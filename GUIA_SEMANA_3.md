@@ -121,6 +121,97 @@ Con PostgreSQL 16, la API y 3 sandboxes reales que se reinician solos como en Do
 
 Las dos son buenas historias para la presentacion: las encontraron las pruebas de fallas.
 
+## Correcciones de la auditoria con Claude Code
+
+Una revision independiente del proyecto encontro tres cosas, ya corregidas:
+
+1. **Alta: los sandboxes podian conectarse a la API.** La API comparte red con los sandboxes
+   (la necesita para mandarles enlaces) y Docker no tiene redes de un solo sentido. El filtro
+   de direcciones internas vive dentro del navegador; si una pagina tomara el control del
+   contenedor, podria abrir una conexion directa a `api:8000`. Ademas, los 3 sandboxes
+   compartian red y se veian entre si. Ahora:
+   - Cada sandbox tiene su propia red (`red_sandbox1`, `red_sandbox2`, `red_sandbox3`): no ve a
+     los otros dos.
+   - La API rechaza con 403 cualquier peticion que llegue desde la IP de un sandbox
+     (`api/src/bloqueoSandboxes.ts`). Los sandboxes no pueden falsificar su IP porque corren sin
+     permisos de red especiales (`cap_drop: [ALL]`).
+2. **Media:** la guia de la semana 2 decia "100 peticiones por minuto"; el codigo usa 300
+   desde la semana 3. Ya esta corregida.
+3. **Baja:** `probar-api.ps1` y `probar-sandbox.ps1` no mandaban el texto en UTF-8; con acentos
+   o enies llegaria mal. Ya lo hacen, igual que `probar-analisis.ps1`.
+
+### Verificar el aislamiento en Docker
+
+Como cambiaron las redes, apaga todo y vuelve a levantar (tus usuarios no se borran):
+
+```
+docker compose down
+docker compose up --build -d
+```
+
+Desde dentro del sandbox 1, intenta llegar a la API, al sandbox 2 y a la base de datos:
+
+```
+docker compose exec sandbox1 node -e "fetch('http://api:8000/salud').then(r => console.log('api:', r.status)).catch(e => console.log('api: sin conexion', e.cause?.code))"
+docker compose exec sandbox1 node -e "fetch('http://sandbox2:9000/salud').then(r => console.log('sandbox2:', r.status)).catch(e => console.log('sandbox2: sin conexion', e.cause?.code))"
+docker compose exec sandbox1 node -e "fetch('http://db:5432').then(r => console.log('db:', r.status)).catch(e => console.log('db: sin conexion', e.cause?.code))"
+```
+
+Lo esperado:
+
+- `api: 403` (la API lo rechaza)
+- `sandbox2: sin conexion ENOTFOUND` (no existe en su red)
+- `db: sin conexion ENOTFOUND` (no existe en su red)
+
+Y en los registros de la API (`docker compose logs api --tail 5`) aparece
+`Peticion desde un sandbox bloqueada`. Toma captura de las tres respuestas: son evidencia
+para las pruebas de seguridad de la semana 5. Despues confirma que todo sigue funcionando:
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\probar-analisis.ps1 -Texto "https://example.com/otra"
+```
+
+### bloqueoSandboxes.ts
+
+```ts
+const nombres = [...new Set(direcciones.map((direccion) => new URL(direccion).hostname))];
+
+async function ipsDeSandboxes() {
+  if (Date.now() < memoria.hasta) return memoria.ips;
+  ...
+  for (const { address } of await resolver(nombre, { all: true })) {
+    const ip = normalizar(address);
+    if (!LOCALES.has(ip)) ips.add(ip);
+  }
+  ...
+  memoria = { ips, hasta: Date.now() + VIGENCIA_MS };
+}
+
+app.addHook('onRequest', async (peticion, respuesta) => {
+  const origen = normalizar(peticion.socket.remoteAddress ?? '');
+  if ((await ipsDeSandboxes()).has(origen)) {
+    peticion.log.warn({ origen }, 'Peticion desde un sandbox bloqueada');
+    return respuesta.code(403).send({ detail: 'Acceso denegado' });
+  }
+});
+```
+
+→ **nombres** — de `http://sandbox1:9000` saca `sandbox1`, el nombre del contenedor.
+→ **resolver(nombre)** — pregunta al DNS de Docker que IP tiene ese sandbox ahora mismo.
+→ **memoria de 5 segundos** — un sandbox reiniciado puede cambiar de IP; se vuelve a preguntar seguido, pero no en cada peticion.
+→ **LOCALES** — sin Docker (en desarrollo), un sandbox puede ser 127.0.0.1; no se bloquea a uno mismo.
+→ **remoteAddress** (direccion remota) — la IP desde donde llego la conexion.
+→ **normalizar** — quita el prefijo `::ffff:` con que Node a veces escribe las IPv4.
+→ **onRequest** — se registra primero que todo: la peticion se rechaza antes de llegar a cualquier ruta.
+→ **code(403)** — "prohibido", y queda anotado en los registros como evidencia.
+
+*Este archivo es una segunda barrera: aunque un sandbox fuera tomado, no puede usar la API.*
+
+**Para la defensa:** el aislamiento total entre redes requeriria un firewall o un
+intermediario, porque Docker no tiene redes de un solo sentido. Con redes separadas por
+sandbox, la base de datos en una red sin internet, contenedores sin permisos de red y el
+bloqueo por IP en la API, un sandbox comprometido no puede llegar a nada util.
+
 ---
 
 # Como fluye un analisis

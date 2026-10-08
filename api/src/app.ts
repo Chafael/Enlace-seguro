@@ -7,6 +7,7 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import Fastify, { type FastifyError } from 'fastify';
+import { registrarBloqueoDeSandboxes, type Resolver } from './bloqueoSandboxes.js';
 import type { Configuracion } from './config.js';
 import type { BaseDeDatos } from './db.js';
 import { rutasAnalisis } from './rutas/analisis.js';
@@ -14,7 +15,13 @@ import { rutasAuth } from './rutas/auth.js';
 import { rutasUsuario } from './rutas/usuario.js';
 
 /** avisar: se llama cuando entra un analisis nuevo, para despertar al procesador. */
-export async function construirApp(config: Configuracion, db: BaseDeDatos, avisar: () => void, registros = true) {
+export async function construirApp(
+  config: Configuracion,
+  db: BaseDeDatos,
+  avisar: () => void,
+  registros = true,
+  resolver?: Resolver, // solo para pruebas
+) {
   const app = Fastify({
     logger: registros,
     bodyLimit: 10_000, // 10 KB: suficiente para un enlace, evita cuerpos gigantes
@@ -22,6 +29,7 @@ export async function construirApp(config: Configuracion, db: BaseDeDatos, avisa
   });
 
   // ---------- Seguridad ----------
+  registrarBloqueoDeSandboxes(app, config.sandboxes, resolver); // primero que todo
   // 300 por minuto: la app consulta cada 2 segundos mientras espera un resultado
   await app.register(fastifyRateLimit, { max: 300, timeWindow: '1 minute' });
   await app.register(fastifyJwt, {

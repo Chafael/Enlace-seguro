@@ -10,11 +10,12 @@ param(
   [int]$Puerto = 9001
 )
 
-$cuerpo = @{ url = $Url } | ConvertTo-Json
+# UTF-8 explicito: Windows PowerShell 5.1 manda el texto con otra codificacion si no se indica
+$cuerpo = [Text.Encoding]::UTF8.GetBytes((@{ url = $Url } | ConvertTo-Json))
 
 try {
   $r = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$Puerto/abrir" `
-    -ContentType 'application/json' -Body $cuerpo -TimeoutSec 60
+    -ContentType 'application/json; charset=utf-8' -Body $cuerpo -TimeoutSec 60
 } catch {
   Write-Host "El sandbox respondio con error:" -ForegroundColor Red
   if ($_.ErrorDetails.Message) { Write-Host $_.ErrorDetails.Message } else { Write-Host $_.Exception.Message }

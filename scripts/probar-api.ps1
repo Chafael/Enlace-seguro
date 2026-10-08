@@ -15,8 +15,8 @@ function Llamar($Metodo, $Ruta, $Cuerpo, $Token) {
   if ($Token) { $encabezados['Authorization'] = "Bearer $Token" }
   $parametros = @{ Method = $Metodo; Uri = "$Api$Ruta"; Headers = $encabezados; TimeoutSec = 30 }
   if ($Cuerpo) {
-    $parametros['ContentType'] = 'application/json'
-    $parametros['Body'] = ($Cuerpo | ConvertTo-Json)
+    $parametros['ContentType'] = 'application/json; charset=utf-8'
+    $parametros['Body'] = [Text.Encoding]::UTF8.GetBytes(($Cuerpo | ConvertTo-Json))
   }
   try {
     return Invoke-RestMethod @parametros

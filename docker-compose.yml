@@ -15,7 +15,8 @@ x-sandbox: &sandbox
   security_opt:
     - no-new-privileges:true
   restart: always           # si el sandbox se cierra, Docker lo levanta limpio
-  networks: [red_sandbox]   # no esta en red_interna: no puede ver la base de datos
+  # Cada sandbox tiene su propia red (ver abajo): no esta en red_interna, asi que no
+  # puede ver la base de datos, y tampoco puede ver a los otros sandboxes.
 
 services:
   db:
@@ -49,19 +50,28 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    networks: [red_interna, red_sandbox]  # ve la base de datos y los sandboxes
+    # Ve la base de datos y a cada sandbox. Las peticiones que llegan DESDE un sandbox
+    # se rechazan con 403 en la propia API (api/src/bloqueoSandboxes.ts).
+    networks: [red_interna, red_sandbox1, red_sandbox2, red_sandbox3]
 
   sandbox1:
     <<: *sandbox
+    networks: [red_sandbox1]
     ports:
       - "127.0.0.1:9001:9000"   # SOLO para probar desde tu PC; quitar en la semana 4
-  sandbox2: *sandbox
-  sandbox3: *sandbox
+  sandbox2:
+    <<: *sandbox
+    networks: [red_sandbox2]
+  sandbox3:
+    <<: *sandbox
+    networks: [red_sandbox3]
 
 networks:
   red_interna:
     internal: true          # sin salida a internet: solo api y db
-  red_sandbox: {}           # con salida a internet para abrir los enlaces
+  red_sandbox1: {}          # con salida a internet para abrir los enlaces
+  red_sandbox2: {}
+  red_sandbox3: {}
 
 volumes:
   datos_db:

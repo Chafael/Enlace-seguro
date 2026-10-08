@@ -353,7 +353,7 @@ const app = Fastify({
   ajv: { customOptions: { removeAdditional: false } },
 });
 
-await app.register(fastifyRateLimit, { max: 100, timeWindow: '1 minute' });
+await app.register(fastifyRateLimit, { max: 300, timeWindow: '1 minute' });
 await app.register(fastifyJwt, {
   secret: config.secretoJwt,
   verify: { algorithms: ['HS256'] },
@@ -376,7 +376,7 @@ await app.register(rutasUsuario, { db });
 → **logger** (registro) — anota cada peticion en la consola; lo ves con `docker compose logs api`.
 → **bodyLimit: 10_000** (limite del cuerpo) — rechaza cuerpos de mas de 10 KB con 413.
 → **removeAdditional: false** (no quitar adicionales) — por defecto Fastify borraria los campos extra en silencio; asi los rechaza con 400.
-→ **fastifyRateLimit** (limite de peticiones) — 100 peticiones por minuto por IP en toda la API; el login tiene su propio limite de 5.
+→ **fastifyRateLimit** (limite de peticiones) — 300 peticiones por minuto por IP en toda la API (en la semana 3 se subio de 100 a 300 porque la app consulta el resultado cada 2 segundos); el login tiene su propio limite de 5.
 → **fastifyJwt** — agrega `jwt.sign` y `jwtVerify`.
 → **algorithms: ['HS256']** (algoritmos) — solo acepta tokens firmados con nuestro algoritmo. Bloquea el ataque "alg: none", donde el atacante manda un token sin firma (esta en las pruebas).
 → **fastifySwagger / fastifySwaggerUi** — generan la documentacion en `/docs` a partir de los esquemas.
@@ -459,7 +459,7 @@ db:
   en Windows ni en Docker.
 - **¿Por qué el registro sí dice que el correo existe?** El usuario necesita saber por
   que no puede registrarse. El riesgo de que se averigüen correos se reduce con el
-  limite de 100 peticiones por minuto; el login, que es lo que se ataca con fuerza
+  limite de 300 peticiones por minuto; el login, que es lo que se ataca con fuerza
   bruta, no revela nada.
 - **¿Qué pasa si roban la base de datos?** Solo obtienen hashes bcrypt con 12 rondas y
   sal propia: no se pueden revertir y adivinarlos uno por uno es muy lento.
